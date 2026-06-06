@@ -1,0 +1,107 @@
+page { margin:0; padding:0; background:#0a0a1a; height:100vh; overflow:hidden; }
+.game-container { position:relative; width:100vw; height:100vh; overflow:hidden; }
+.game-canvas { width:100%; height:100%; }
+
+/* HUD */
+.hud {
+  position:absolute; top:30rpx; left:50%; transform:translateX(-50%);
+  display:flex; gap:18rpx; z-index:5; pointer-events:none;
+}
+.hud-item {
+  background:rgba(0,0,0,0.65); border-radius:10rpx; padding:8rpx 20rpx;
+  text-align:center; border:1rpx solid rgba(255,255,255,0.1);
+}
+.hud-val { color:#fff; font-size:26rpx; font-weight:800; display:block; }
+.hud-lbl { color:#888; font-size:18rpx; }
+
+/* 憋气条 */
+.drown-wrap {
+  position:absolute; bottom:140rpx; left:50%; transform:translateX(-50%);
+  width:300rpx; height:12rpx; background:rgba(255,255,255,0.1);
+  border-radius:6rpx; z-index:5; pointer-events:none; opacity:0; transition:opacity .3s;
+}
+.drown-wrap.show { opacity:1; }
+.drown-bar { height:100%; border-radius:6rpx; transition:width .15s; }
+
+/* 顶栏按钮 */
+.top-btns { position:absolute; top:24rpx; right:20rpx; display:flex; gap:12rpx; z-index:6; }
+.top-btn {
+  width:70rpx; height:70rpx; border-radius:50%; border:2rpx solid rgba(255,255,255,0.25);
+  background:rgba(0,0,0,0.5); color:#ccc; font-size:30rpx; text-align:center;
+  line-height:70rpx; padding:0; margin:0;
+}
+.top-btn.cpu-btn { color:#ff8c42; border-color:rgba(255,140,66,0.4); }
+.top-btn.auto-btn { color:#00ff88; border-color:rgba(0,255,136,0.4); }
+.top-btn.auto-btn.active { background:rgba(0,255,136,0.25); color:#fff; }
+
+/* 覆盖层 */
+.overlay {
+  position:absolute; inset:0; z-index:10;
+  background:rgba(10,10,26,0.94);
+  display:flex; flex-direction:column;
+  justify-content:center; align-items:center;
+  padding:30rpx 0; overflow-y:auto;
+}
+.overlay.hidden { display:none; }
+
+.title {
+  font-size:64rpx; font-weight:900;
+  color:#e94560; margin-bottom:6rpx; letter-spacing:4rpx;
+}
+.subtitle { color:#8ab4f8; font-size:24rpx; margin-bottom:30rpx; letter-spacing:6rpx; }
+
+.section { margin-bottom:24rpx; text-align:center; }
+.section-label { color:#aaa; font-size:22rpx; display:block; margin-bottom:14rpx; }
+
+/* 关卡网格 */
+.level-grid {
+  display:flex; flex-wrap:wrap; gap:12rpx; max-width:600rpx; justify-content:center;
+}
+.level-card {
+  width:100rpx; padding:16rpx 6rpx; border-radius:14rpx; border:2rpx solid #333;
+  background:#1a1a2e; text-align:center; transition:all .2s;
+}
+.level-card.selected { border-color:#e94560; background:#2a1a30; box-shadow:0 0 20rpx rgba(233,68,96,0.25); }
+.level-card.completed { border-color:#f5c518; background:rgba(245,197,24,0.08); }
+.level-card.current { border-color:#4fc3f7; background:rgba(79,195,247,0.1); }
+.level-card.locked { opacity:0.35; }
+.level-num { font-size:36rpx; font-weight:900; color:#fff; display:block; }
+.level-desc { font-size:18rpx; color:#888; margin-top:4rpx; display:block; }
+
+/* 角色选择 */
+.char-select { display:flex; gap:16rpx; }
+.char-card {
+  padding:18rpx 24rpx; border-radius:14rpx; border:2rpx solid #333;
+  background:#1a1a2e; text-align:center; transition:all .2s; width:170rpx;
+}
+.char-card.selected { border-color:#e94560; background:#2a1a30; }
+.char-icon { font-size:44rpx; display:block; margin-bottom:6rpx; }
+.char-name { color:#fff; font-size:24rpx; font-weight:700; display:block; }
+.char-speed { color:#888; font-size:18rpx; display:block; margin-top:2rpx; }
+
+/* 按钮 */
+.start-btn {
+  margin-top:20rpx; padding:20rpx 80rpx; font-size:30rpx; font-weight:800;
+  border:none; border-radius:50rpx;
+  background:linear-gradient(135deg, #e94560, #c23152);
+  color:#fff; box-shadow:0 8rpx 30rpx rgba(233,68,96,0.4);
+}
+.start-btn[disabled] { opacity:0.35; }
+
+.sub-btn {
+  margin-top:16rpx; padding:14rpx 50rpx; font-size:26rpx; font-weight:600;
+  border:2rpx solid #555; border-radius:50rpx;
+  background:transparent; color:#aaa;
+}
+.exit-btn { border-color:#444; color:#666; margin-top:10rpx; }
+
+/* 规则 */
+.rules-content { max-width:560rpx; text-align:left; }
+.rules-title { text-align:center; font-size:36rpx; font-weight:900; color:#f5c518; margin-bottom:20rpx; }
+.rules-text { display:block; color:#ccc; font-size:24rpx; line-height:2.0; }
+
+/* 结算 */
+.end-title { font-size:48rpx; font-weight:900; margin-bottom:16rpx; }
+.end-title.win { color:#f5c518; }
+.end-title.lose { color:#e94560; }
+.end-stats { color:#aaa; font-size:22rpx; margin-bottom:16rpx; text-align:center; line-height:1.8; }

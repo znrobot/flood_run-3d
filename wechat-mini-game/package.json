@@ -1,0 +1,8 @@
+{
+  "name": "flood-escape",
+  "version": "1.0.0",
+  "description": "逃离洪水3D - 微信小程序版",
+  "dependencies": {
+    "three": "^0.160.0"
+  }
+}

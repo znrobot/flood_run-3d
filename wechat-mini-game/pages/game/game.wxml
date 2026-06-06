@@ -1,1 +1,108 @@
-<web-view src="{{gameUrl}}"></web-view>
+<view class="game-container">
+  <canvas type="webgl" id="gameCanvas" class="game-canvas"
+    bindtouchstart="onTouchStart"
+    bindtouchmove="onTouchMove"
+    bindtouchend="onTouchEnd"
+  ></canvas>
+
+  <!-- HUD 顶部信息栏 -->
+  <view class="hud" wx:if="{{state==1}}">
+    <view class="hud-item"><text class="hud-val">{{hudTime}}s</text><text class="hud-lbl">时间</text></view>
+    <view class="hud-item"><text class="hud-val">{{hudFloor}}</text><text class="hud-lbl">楼层</text></view>
+    <view class="hud-item"><text class="hud-val">{{hudWater}}</text><text class="hud-lbl">水位</text></view>
+    <view class="hud-item"><text class="hud-val">10s</text><text class="hud-lbl">憋气上限</text></view>
+  </view>
+
+  <!-- 憋气条 -->
+  <view class="drown-wrap {{drownVisible?'show':''}}">
+    <view class="drown-bar" style="width:{{drownPct}}%;background:{{drownColor}};"></view>
+  </view>
+
+  <!-- 游戏内按钮 -->
+  <view class="top-btns" wx:if="{{state==1}}">
+    <view class="top-btn" bindtap="goHome">🏠</view>
+    <view class="top-btn cpu-btn" bindtap="viewCPU">👀</view>
+    <view class="top-btn auto-btn {{autoClimb?'active':''}}" bindtap="toggleAuto">🤖</view>
+  </view>
+
+  <!-- 主菜单 -->
+  <view class="overlay" wx:if="{{state==0 && !rulesShow}}">
+    <view class="title">逃离洪水</view>
+    <view class="subtitle">ESCAPE THE FLOOD</view>
+
+    <view class="section">
+      <view class="section-label">选择关卡</view>
+      <view class="level-grid">
+        <view wx:for="{{levels}}" wx:key="id"
+          class="level-card {{item.id==selLvl?'selected':''}} {{item.id<unlocked?'completed':''}} {{item.id>unlocked?'locked':''}} {{item.id==unlocked?'current':''}}"
+          data-id="{{item.id}}" bindtap="tapLevel">
+          <text class="level-num">{{item.id}}</text>
+          <text class="level-desc">{{item.descZh}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="section">
+      <view class="section-label">选择角色</view>
+      <view class="char-select">
+        <view class="char-card {{charKey=='athlete'?'selected':''}}" data-char="athlete" bindtap="tapChar">
+          <text class="char-icon">🏃</text><text class="char-name">运动员</text><text class="char-speed">速度:快</text>
+        </view>
+        <view class="char-card {{charKey=='normal'?'selected':''}}" data-char="normal" bindtap="tapChar">
+          <text class="char-icon">🚶</text><text class="char-name">普通人</text><text class="char-speed">速度:中</text>
+        </view>
+        <view class="char-card {{charKey=='elder'?'selected':''}}" data-char="elder" bindtap="tapChar">
+          <text class="char-icon">🧑‍🦯</text><text class="char-name">老人</text><text class="char-speed">速度:慢</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="section">
+      <view class="section-label">时间场景</view>
+      <view style="display:flex;gap:16rpx;">
+        <view class="char-card {{nightMode?'selected':''}}" data-night="1" bindtap="tapNight" style="width:180rpx;">
+          <text>🌙 黑夜</text>
+        </view>
+        <view class="char-card {{!nightMode?'selected':''}}" data-night="0" bindtap="tapNight" style="width:180rpx;">
+          <text>☀️ 白天</text>
+        </view>
+      </view>
+    </view>
+
+    <button class="start-btn" bindtap="startGame" disabled="{{!selLvl}}">{{selLvl?'开 始 游 戏':'请 先 选 关 卡'}}</button>
+    <button class="sub-btn" bindtap="showRules">📋 游戏规则</button>
+    <button class="sub-btn exit-btn" bindtap="resetProgress">↺ 重置进度</button>
+  </view>
+
+  <!-- 规则 -->
+  <view class="overlay" wx:if="{{rulesShow}}">
+    <view class="rules-content">
+      <view class="rules-title">📋 游戏规则</view>
+      <text class="rules-text">🌊 前 10秒 为安全期，洪水尚未到来。</text>
+      <text class="rules-text">🏆 共 10关，击败对手并到达楼顶解锁下一关。</text>
+      <text class="rules-text">👥 每关有电脑对手竞速，对手先到楼顶即失败。</text>
+      <text class="rules-text">🖱 触摸屏幕上方引导角色攀爬，摸得越高爬得越快。</text>
+      <text class="rules-text">🤖 点击自动攀爬键角色自动向上攀爬。</text>
+      <text class="rules-text">⬆ 角色只能向上，不能向下。</text>
+      <text class="rules-text">💀 被洪水淹没超10秒即死亡。</text>
+    </view>
+    <button class="sub-btn" bindtap="hideRules">返回</button>
+  </view>
+
+  <!-- 胜利 -->
+  <view class="overlay" wx:if="{{state==2}}">
+    <view class="end-title win">{{winTitleText}}</view>
+    <view class="end-stats">{{winMsg}}</view>
+    <button class="start-btn" wx:if="{{canNext}}" bindtap="nextLevel">▶ 下一关</button>
+    <button class="sub-btn" bindtap="startGame">再来一局</button>
+    <button class="sub-btn exit-btn" bindtap="goHome">回到首页</button>
+  </view>
+
+  <!-- 失败 -->
+  <view class="overlay" wx:if="{{state==3}}">
+    <view class="end-title lose">{{loseTitleText}}</view>
+    <view class="end-stats">{{loseMsg}}</view>
+    <button class="sub-btn" bindtap="startGame">再试一次</button>
+    <button class="sub-btn exit-btn" bindtap="goHome">回到首页</button>
+  </view>
+</view>

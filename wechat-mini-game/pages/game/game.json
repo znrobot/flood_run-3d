@@ -1,3 +1,5 @@
 {
-  "navigationBarTitleText": "洪水逃生"
+  "navigationBarTitleText": "逃离洪水3D",
+  "disableScroll": true,
+  "pageOrientation": "portrait"
 }

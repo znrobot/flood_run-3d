@@ -1,7 +1,26 @@
 {
   "appid": "你的小程序AppID",
   "projectname": "flood-escape",
+  "miniprogramRoot": "./",
+  "compileType": "miniprogram",
   "setting": {
-    "urlCheck": false
+    "urlCheck": true,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true,
+    "ignoreUploadUnusedFiles": true,
+    "compileWorklet": true,
+    "packNpmManually": false,
+    "packNpmRelationList": [],
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": []
+    }
+  },
+  "condition": {},
+  "editorSetting": {
+    "tabIndent": "insertSpaces",
+    "tabSize": 2
   }
 }

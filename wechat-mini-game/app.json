@@ -1,8 +1,9 @@
 {
   "pages": ["pages/game/game"],
   "window": {
-    "navigationBarTitleText": "洪水逃生",
+    "navigationBarTitleText": "逃离洪水3D",
     "navigationBarBackgroundColor": "#0a0a1a",
-    "navigationBarTextStyle": "white"
+    "navigationBarTextStyle": "white",
+    "navigationStyle": "custom"
   }
 }
