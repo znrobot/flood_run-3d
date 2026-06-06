@@ -1,0 +1,1953 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>逃离洪水 3D - Escape the Flood 3D</title>
+<style>
+  :root { --bg: #1a1a2e; --panel: #16213e; --accent: #e94560; --gold: #f5c518; --text: #eee; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #0a0a1a;
+    display: flex; justify-content: center; align-items: center;
+    height: 100vh; overflow: hidden; user-select: none; -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+  #game-container {
+    position: relative;
+    width: 100vw; height: 100vh; max-width: 1920px; max-height: 1440px;
+    background: #1a1a2e;
+    box-shadow: 0 0 60px rgba(233,68,96,0.3);
+    overflow: hidden;
+  }
+  canvas { display: block; width: 100%; height: 100%; pointer-events: auto; }
+
+  .overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    background: rgba(10,10,26,0.92);
+    z-index: 10; transition: opacity 0.5s;
+    overflow-y: auto; padding: 20px 0;
+  }
+  .overlay.hidden { opacity: 0; pointer-events: none; }
+
+  .title {
+    font-size: clamp(28px, 6vw, 52px);
+    font-weight: 900;
+    background: linear-gradient(180deg, #ff6b6b, #e94560);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 6px;
+    text-shadow: none;
+    letter-spacing: 2px;
+  }
+  .subtitle { color: #8ab4f8; font-size: 14px; margin-bottom: 20px; letter-spacing: 4px; }
+
+  .setting-group { margin-bottom: 20px; text-align: center; }
+  .setting-label { color: #aaa; font-size: 13px; margin-bottom: 10px; display: block; letter-spacing: 1px; }
+
+  .char-select { display: flex; gap: 12px; }
+  .char-card {
+    padding: 14px 18px; border-radius: 14px; border: 2px solid #333;
+    background: #1a1a2e; cursor: pointer; text-align: center;
+    transition: all 0.2s; min-width: 100px;
+  }
+  .char-card:hover { border-color: #555; transform: translateY(-2px); }
+  .char-card.selected { border-color: #e94560; background: #2a1a30; box-shadow: 0 0 20px rgba(233,68,96,0.25); }
+  .char-icon { font-size: 36px; display: block; margin-bottom: 6px; }
+  .char-name { color: #fff; font-size: 14px; font-weight: 700; }
+  .char-speed { color: #888; font-size: 11px; margin-top: 4px; }
+
+  /* Level grid */
+  .level-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    max-width: 620px;
+    width: 90%;
+    margin-bottom: 8px;
+  }
+  .level-card {
+    padding: 16px 10px; border-radius: 14px; border: 2px solid #333;
+    background: #1a1a2e; cursor: pointer; text-align: center;
+    transition: all 0.2s; position: relative;
+  }
+  .level-card:hover:not(.locked) { border-color: #e94560; transform: translateY(-2px); background: #2a1a30; box-shadow: 0 0 16px rgba(233,68,96,0.2); }
+  .level-card.completed { border-color: #f5c518; background: rgba(245,197,24,0.08); }
+  .level-card.completed::after { content: '⭐'; position: absolute; top: -6px; right: -2px; font-size: 18px; }
+  .level-card.locked { opacity: 0.35; cursor: not-allowed; filter: grayscale(0.6); }
+  .level-card.locked:hover { border-color: #333; transform: none; background: #1a1a2e; box-shadow: none; }
+  .level-card.current { border-color: #4fc3f7; background: rgba(79,195,247,0.1); box-shadow: 0 0 18px rgba(79,195,247,0.25); }
+  .level-card.selected { border-color: #e94560; background: #2a1a30; box-shadow: 0 0 20px rgba(233,68,96,0.3); }
+  .level-num { font-size: 28px; font-weight: 900; color: #fff; display: block; }
+  .level-card.locked .level-num { color: #555; }
+  .level-card.completed .level-num { color: #f5c518; }
+  .level-floors { color: #888; font-size: 11px; margin-top: 2px; display: block; }
+  .level-water { color: #64b5f6; font-size: 10px; margin-top: 2px; display: block; }
+  .level-card.locked .level-floors, .level-card.locked .level-water { color: #444; }
+  .level-lock { font-size: 20px; display: block; margin-top: 4px; }
+
+  .btn-start {
+    margin-top: 20px;
+    padding: 16px 60px; font-size: 22px; font-weight: 800;
+    border: none; border-radius: 50px;
+    background: linear-gradient(135deg, #e94560, #c23152);
+    color: #fff; cursor: pointer; letter-spacing: 2px;
+    transition: all 0.2s;
+    box-shadow: 0 8px 30px rgba(233,68,96,0.4);
+  }
+  .btn-start:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(233,68,96,0.55); }
+  .btn-start:active { transform: scale(0.95); }
+  .btn-start:disabled { opacity: 0.3; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .btn-restart {
+    padding: 14px 50px; font-size: 18px; font-weight: 700;
+    border: 2px solid #e94560; border-radius: 50px;
+    background: transparent; color: #e94560; cursor: pointer;
+    letter-spacing: 1px; transition: all 0.2s; margin-top: 20px;
+  }
+  .btn-restart:hover { background: #e94560; color: #fff; }
+  .btn-home {
+    padding: 12px 40px; font-size: 15px; font-weight: 600;
+    border: 2px solid #555; border-radius: 50px;
+    background: transparent; color: #aaa; cursor: pointer;
+    letter-spacing: 1px; transition: all 0.2s; margin-top: 10px;
+  }
+  .btn-home:hover { border-color: #aaa; color: #fff; }
+  .btn-rules {
+    margin-top: 8px;
+    padding: 10px 32px; font-size: 14px; font-weight: 600;
+    border: 2px solid #555; border-radius: 50px;
+    background: transparent; color: #aaa; cursor: pointer;
+    letter-spacing: 1px; transition: all 0.2s;
+  }
+  .btn-rules:hover { border-color: #f5c518; color: #f5c518; }
+  .btn-reset-progress {
+    margin-top: 8px;
+    padding: 8px 24px; font-size: 12px; font-weight: 500;
+    border: 1px solid #444; border-radius: 20px;
+    background: transparent; color: #666; cursor: pointer;
+    letter-spacing: 1px; transition: all 0.2s;
+  }
+  .btn-reset-progress:hover { border-color: #e94560; color: #e94560; }
+
+  .lang-toggle { display: flex; gap: 8px; }
+  .lang-btn {
+    padding: 8px 18px; border-radius: 10px; border: 2px solid #333;
+    background: #1a1a2e; color: #aaa; font-size: 13px; font-weight: 700;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .lang-btn:hover { border-color: #555; color: #ddd; }
+  .lang-btn.selected { border-color: #f5c518; color: #f5c518; background: rgba(245,197,24,0.08); }
+
+  .mode-toggle { display: flex; gap: 8px; }
+  .mode-btn {
+    padding: 10px 22px; border-radius: 12px; border: 2px solid #333;
+    background: #1a1a2e; color: #aaa; font-size: 14px; font-weight: 700;
+    cursor: pointer; transition: all 0.2s; letter-spacing: 1px;
+  }
+  .mode-btn:hover { border-color: #555; color: #ddd; }
+  .mode-btn.selected { border-color: #4fc3f7; color: #4fc3f7; background: rgba(79,195,247,0.1); box-shadow: 0 0 16px rgba(79,195,247,0.2); }
+
+  .end-title { font-size: clamp(32px, 6vw, 56px); font-weight: 900; margin-bottom: 10px; }
+  .end-title.win { color: #f5c518; }
+  .end-title.lose { color: #e94560; }
+  .end-stats { color: #aaa; font-size: 15px; margin-bottom: 8px; text-align: center; line-height: 1.8; }
+
+  /* HUD */
+  #hud {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 18px; z-index: 5;
+    pointer-events: none;
+  }
+  .hud-item {
+    background: rgba(0,0,0,0.65); backdrop-filter: blur(8px);
+    border-radius: 10px; padding: 8px 16px; text-align: center;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .hud-val { color: #fff; font-size: 20px; font-weight: 800; }
+  .hud-lbl { color: #888; font-size: 10px; letter-spacing: 1px; }
+
+  #drown-bar-wrap {
+    position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
+    width: 200px; height: 8px; background: rgba(255,255,255,0.1);
+    border-radius: 4px; z-index: 5; pointer-events: none;
+    opacity: 0; transition: opacity 0.3s;
+  }
+  #drown-bar-wrap.visible { opacity: 1; }
+  #drown-bar {
+    height: 100%; background: linear-gradient(90deg, #4fc3f7, #e94560);
+    border-radius: 4px; transition: width 0.15s linear;
+    width: 0%;
+  }
+
+  #climb-btn {
+    position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
+    width: 90px; height: 90px; border-radius: 50%;
+    background: rgba(233,68,96,0.25); border: 3px solid rgba(233,68,96,0.6);
+    color: #fff; font-size: 15px; font-weight: 800;
+    cursor: pointer; z-index: 5; letter-spacing: 1px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.1s;
+  }
+  #climb-btn:active, #climb-btn.pressed { background: rgba(233,68,96,0.55); transform: translateX(-50%) scale(0.92); }
+
+  #home-btn-top {
+    position: absolute; top: 12px; right: 14px;
+    padding: 14px 32px;
+    border-radius: 24px; border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(0,0,0,0.45); backdrop-filter: blur(6px);
+    color: #ccc; font-size: 26px; font-weight: 600;
+    cursor: pointer; z-index: 6;
+    letter-spacing: 1px; transition: all 0.2s;
+  }
+  #home-btn-top:hover { border-color: #e94560; color: #e94560; background: rgba(233,68,96,0.15); }
+
+  #view-cpu-btn {
+    position: absolute; top: 76px; right: 14px;
+    padding: 14px 32px;
+    border-radius: 24px; border: 1px solid rgba(255,152,0,0.3);
+    background: rgba(0,0,0,0.45); backdrop-filter: blur(6px);
+    color: #ff8c42; font-size: 26px; font-weight: 600;
+    cursor: pointer; z-index: 6;
+    letter-spacing: 1px; transition: all 0.2s;
+  }
+  #view-cpu-btn:hover { border-color: #ff8c42; background: rgba(255,152,0,0.15); }
+
+  #auto-climb-btn {
+    position: absolute; top: 163px; right: 14px;
+    padding: 14px 24px;
+    border-radius: 24px; border: 1px solid rgba(0,255,136,0.3);
+    background: rgba(0,0,0,0.45); backdrop-filter: blur(6px);
+    color: #00ff88; font-size: 22px; font-weight: 600;
+    cursor: pointer; z-index: 6;
+    letter-spacing: 1px; transition: all 0.2s;
+  }
+  #auto-climb-btn:hover { border-color: #00ff88; background: rgba(0,255,136,0.15); }
+  #auto-climb-btn.active { border-color: #00ff88; background: rgba(0,255,136,0.3); color: #fff; box-shadow: 0 0 16px rgba(0,255,136,0.4); }
+
+  .btn-next {
+    padding: 14px 50px; font-size: 18px; font-weight: 700;
+    border: none; border-radius: 50px;
+    background: linear-gradient(135deg, #f5c518, #e6a800);
+    color: #1a1a2e; cursor: pointer;
+    letter-spacing: 1px; transition: all 0.2s; margin-top: 10px;
+    box-shadow: 0 6px 24px rgba(245,197,24,0.35);
+  }
+  .btn-next:hover { transform: translateY(-2px); box-shadow: 0 10px 32px rgba(245,197,24,0.5); }
+
+  .btn-select-level {
+    padding: 10px 36px; font-size: 15px; font-weight: 600;
+    border: 2px solid #4fc3f7; border-radius: 24px;
+    background: rgba(79,195,247,0.1); color: #4fc3f7;
+    cursor: pointer; letter-spacing: 1px; transition: all 0.2s;
+    margin-bottom: 10px; margin-top: 4px;
+  }
+  .btn-select-level:hover { background: rgba(79,195,247,0.25); border-color: #81d4fa; color: #81d4fa; }
+  .btn-select-level:disabled { opacity: 0.3; cursor: default; }
+
+  .btn-levels {
+    padding: 8px 28px; font-size: 14px; font-weight: 600;
+    border: 2px solid #4fc3f7; border-radius: 30px;
+    background: rgba(79,195,247,0.08); color: #4fc3f7;
+    cursor: pointer; letter-spacing: 1px; transition: all 0.2s; margin-top: 8px;
+  }
+  .btn-levels:hover { background: rgba(79,195,247,0.2); border-color: #81d4fa; color: #81d4fa; }
+
+  @keyframes flyAway {
+    0%   { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+    60%  { transform: translate(40px, -30px) rotate(25deg); opacity: 0.6; }
+    100% { transform: translate(80px, -50px) rotate(50deg); opacity: 0; }
+  }
+  @keyframes blowWind {
+    0%, 100% { transform: scale(1); opacity: 0.6; }
+    50%      { transform: scale(1.4); opacity: 1; }
+  }
+
+  @media (max-width: 700px) {
+    .level-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .level-card { padding: 12px 6px; }
+    .level-num { font-size: 22px; }
+    .char-select { flex-direction: column; gap: 8px; }
+    .char-card { min-width: auto; padding: 10px 30px; }
+    .char-card .char-icon { font-size: 24px; display: inline; margin-right: 6px; }
+    .char-name { display: inline; }
+    #climb-btn { width: 76px; height: 76px; font-size: 13px; }
+  }
+  @media (max-width: 400px) {
+    .level-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+  <canvas id="game"></canvas>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-item">
+      <div class="hud-val" id="hud-time">0.0s</div>
+      <div class="hud-lbl">时间</div>
+    </div>
+    <div class="hud-item">
+      <div class="hud-val" id="hud-floor">0</div>
+      <div class="hud-lbl">楼层</div>
+    </div>
+    <div class="hud-item">
+      <div class="hud-val" id="hud-water">--</div>
+      <div class="hud-lbl">水位</div>
+    </div>
+    <div class="hud-item">
+      <div class="hud-val" id="hud-limit">10s</div>
+      <div class="hud-lbl">憋气上限</div>
+    </div>
+  </div>
+
+  <div id="drown-bar-wrap"><div id="drown-bar"></div></div>
+
+  <button id="climb-btn">爬!</button>
+  <button id="home-btn-top" style="display:none;">🏠 首页</button>
+  <button id="view-cpu-btn" style="display:none;">👀 看对手</button>
+  <button id="auto-climb-btn" style="display:none;">🤖 自动攀爬</button>
+
+  <!-- Start / Level Select overlay -->
+  <div class="overlay" id="start-screen">
+    <div class="title">逃离洪水</div>
+    <div class="subtitle">ESCAPE THE FLOOD</div>
+
+    <div class="lang-toggle" id="lang-toggle" style="margin-bottom:20px;">
+      <button class="lang-btn selected" data-lang="zh">中文</button>
+      <button class="lang-btn" data-lang="en">English</button>
+    </div>
+
+    <div class="setting-group" id="level-label-group" style="display:none;">
+      <span class="setting-label">🏆 选择关卡</span>
+    </div>
+
+    <div class="level-grid" id="level-grid" style="display:none;"></div>
+
+    <button class="btn-select-level" id="btn-select-level">选择关卡</button>
+
+    <div class="setting-group">
+      <span class="setting-label">🧑 选择角色</span>
+      <div class="char-select" id="char-select">
+        <div class="char-card" data-char="athlete">
+          <span class="char-icon">🏃</span>
+          <span class="char-name">运动员</span>
+          <div class="char-speed">速度: 快</div>
+        </div>
+        <div class="char-card selected" data-char="normal">
+          <span class="char-icon">🚶</span>
+          <span class="char-name">普通人</span>
+          <div class="char-speed">速度: 中</div>
+        </div>
+        <div class="char-card" data-char="elder">
+          <span class="char-icon">🧑‍🦯</span>
+          <span class="char-name">老人</span>
+          <div class="char-speed">速度: 慢</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <span class="setting-label">🌗 时间场景</span>
+      <div class="mode-toggle" id="daynight-toggle">
+        <button class="mode-btn selected" data-daynight="night">🌙 黑夜</button>
+        <button class="mode-btn" data-daynight="day">☀️ 白天</button>
+      </div>
+    </div>
+
+    <button class="btn-start" id="btn-start" disabled>选 择 关 卡</button>
+    <button class="btn-rules" id="btn-rules">📋 游戏规则</button>
+    <button class="btn-reset-progress" id="btn-reset-progress">↺ 重置进度</button>
+  </div>
+
+  <!-- Rules overlay -->
+  <div class="overlay hidden" id="rules-screen">
+    <div id="rules-locked" style="display:none; text-align:center;">
+      <div style="position:relative; display:inline-block; margin-bottom:20px;">
+        <span style="font-size:100px; display:inline-block;">✋</span>
+        <span style="font-size:55px; position:absolute; left:60px; top:-10px; animation:flyAway 1.5s ease-out infinite;">📄</span>
+        <span style="font-size:50px; position:absolute; left:110px; top:-40px; animation:blowWind 0.7s ease-in-out infinite;">💨</span>
+      </div>
+      <div style="color:#e94560; font-size:22px; font-weight:900; letter-spacing:2px;">规则丢了</div>
+    </div>
+    <div id="rules-content" style="max-width:440px; text-align:left; color:#ccc; font-size:14px; line-height:2;">
+      <div style="text-align:center; font-size:24px; font-weight:900; color:#f5c518; margin-bottom:16px;">📋 游戏规则</div>
+      <p>🌊 前 <b>10秒</b> 为安全期，洪水尚未到来。</p>
+      <p>🏆 共 <b>10关</b>，每关固定楼层（100~1000层），击败对手并到达楼顶即可解锁下一关。</p>
+      <p>👥 每关都有 <b>电脑对手</b> 与你竞速，对手先到楼顶即失败。</p>
+      <p>🌊 每关洪水速度递增，越往后越难。</p>
+      <p>🖱 用<b>鼠标</b>引导角色移动，角色会自动跟随光标攀爬，鼠标越远爬得越快。</p>
+      <p>🤖 <b>自动攀爬</b>：点击游戏界面右上方的自动攀爬键，角色将自动向上攀爬，无需鼠标操作。</p>
+      <p>🌗 <b>白天/黑夜</b>：根据系统时间自动切换，早上1:00~18:00为白天，18:01~00:59为黑夜。</p>
+      <p>🎯 首页点击<b>「选择关卡」</b>键可展开关卡网格，再次点击即可收回，点击关卡卡片后再点<b>「开始游戏」</b>进入对应关卡。</p>
+      <p>⬆ 角色<b>只能向上</b>，不能向下走。</p>
+      <p>🌊 <b>憋气上限</b>固定为10秒，被洪水淹没超过10秒即死亡。</p>
+      <p>💀 被洪水淹没超过憋气上限即死亡。</p>
+      <p style="color:#8ab4f8; margin-top:12px;">💡 技巧：鼠标放得越高角色爬得越快，尽早向上逃离洪水！</p>
+    </div>
+    <button class="btn-restart" id="btn-rules-back" style="margin-top:20px;">返回</button>
+  </div>
+
+  <!-- End overlays -->
+  <div class="overlay hidden" id="win-screen">
+    <div id="rules-found-msg" style="display:none; color:#f5c518; font-size:20px; font-weight:900; margin-bottom:6px; letter-spacing:2px;">📋 已寻回规则</div>
+    <div class="end-title win">🏆 你赢了!</div>
+    <div class="end-stats" id="win-stats"></div>
+    <button class="btn-next" id="btn-next-level" style="display:none;">▶ 下一关</button>
+    <button class="btn-restart" data-action="restart">再来一局</button>
+    <button class="btn-home" data-action="home">回到首页</button>
+    <button class="btn-levels" id="btn-levels-win">选择关卡</button>
+  </div>
+  <div class="overlay hidden" id="lose-screen">
+    <div class="end-title lose">💀 你被淹死了</div>
+    <div class="end-stats" id="lose-stats"></div>
+    <button class="btn-restart" data-action="restart">再试一次</button>
+    <button class="btn-home" data-action="home">回到首页</button>
+    <button class="btn-levels" id="btn-levels-lose">选择关卡</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js">
+</script>
+
+<script>
+(function() {
+
+// ===================================================================
+//  THREE.JS 3D SETUP
+// ===================================================================
+
+const canvas = document.getElementById('game');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.9;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0d1b2a);
+scene.fog = new THREE.Fog(0x0d1b2a, 30, 80);
+
+const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200);
+
+const ambient = new THREE.AmbientLight(0x506080, 0.8);
+scene.add(ambient);
+
+const hemi = new THREE.HemisphereLight(0x2a3a5a, 0x3e2723, 0.6);
+scene.add(hemi);
+
+const keyLight = new THREE.DirectionalLight(0xffeedd, 1.6);
+keyLight.position.set(8, 15, 5);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.width = 1024;
+keyLight.shadow.mapSize.height = 1024;
+keyLight.shadow.camera.near = 0.5;
+keyLight.shadow.camera.far = 60;
+keyLight.shadow.camera.left = -15;
+keyLight.shadow.camera.right = 15;
+keyLight.shadow.camera.top = 15;
+keyLight.shadow.camera.bottom = -15;
+scene.add(keyLight);
+
+const rimLight = new THREE.DirectionalLight(0x88ccff, 0.4);
+rimLight.position.set(-5, 8, -10);
+scene.add(rimLight);
+
+function applyDayNight() {
+  if (isNightMode) {
+    scene.background = new THREE.Color(0x0d1b2a);
+    scene.fog = new THREE.Fog(0x0d1b2a, 30, 80);
+    ambient.color.set(0x506080);
+    ambient.intensity = 0.8;
+    hemi.color.set(0x2a3a5a);
+    hemi.groundColor.set(0x3e2723);
+    hemi.intensity = 0.6;
+    keyLight.color.set(0xffeedd);
+    keyLight.intensity = 1.6;
+    rimLight.intensity = 0.4;
+    renderer.toneMappingExposure = 0.9;
+    if (stars) stars.visible = true;
+  } else {
+    scene.background = new THREE.Color(0x87ceeb);
+    scene.fog = new THREE.Fog(0xccccdd, 50, 140);
+    ambient.color.set(0x8899aa);
+    ambient.intensity = 1.4;
+    hemi.color.set(0x8899cc);
+    hemi.groundColor.set(0x6d8a4e);
+    hemi.intensity = 1.0;
+    keyLight.color.set(0xffffff);
+    keyLight.intensity = 2.4;
+    rimLight.color.set(0xaaddff);
+    rimLight.intensity = 0.5;
+    renderer.toneMappingExposure = 1.2;
+    if (stars) stars.visible = false;
+  }
+}
+
+// ===================================================================
+//  3D WORLD OBJECTS
+// ===================================================================
+
+const buildingGroup = new THREE.Group();
+scene.add(buildingGroup);
+
+const waterGroup = new THREE.Group();
+scene.add(waterGroup);
+
+let playerGroup = null;
+let cpuPlayerGroup = null;
+let particleSystem = null;
+let cursorDot = null;
+let cursorPlane = null;
+
+let waterMesh = null;
+let waterFoam = null;
+const WATER_SIZE = 25;
+const WATER_SEG = 48;
+
+let stars = null;
+let ground = null;
+
+function createGround() {
+  if (ground) { scene.remove(ground); ground.geometry.dispose(); ground.material.dispose(); }
+  const groundGeo = new THREE.PlaneGeometry(40, 40);
+  const groundMat = new THREE.MeshStandardMaterial({ color: 0x3e2723, roughness: 1.0, metalness: 0 });
+  ground = new THREE.Mesh(groundGeo, groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = -0.15;
+  ground.receiveShadow = true;
+  scene.add(ground);
+}
+
+function createStars() {
+  if (stars) { scene.remove(stars); stars.geometry.dispose(); stars.material.dispose(); }
+  const count = 200;
+  const starGeo = new THREE.BufferGeometry();
+  const pos = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    pos[i * 3] = (Math.random() - 0.5) * 50;
+    pos[i * 3 + 1] = Math.random() * 30 + 1;
+    pos[i * 3 + 2] = (Math.random() - 0.5) * 30 - 8;
+  }
+  starGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.06, transparent: true, opacity: 0.7 });
+  stars = new THREE.Points(starGeo, starMat);
+  scene.add(stars);
+}
+
+// ===================================================================
+//  3D WORLD CONSTANTS
+// ===================================================================
+
+const WORLDS = { buildingW: 3.5, buildingD: 1.4, floorH: 0.65 };
+
+function recalcWorldConstants() {
+  WORLDS.buildingW = 3.5;
+  WORLDS.buildingD = 1.4;
+  WORLDS.floorH = 0.65;
+}
+
+function effectiveFloors3D() {
+  return currentLevel ? currentLevel.floors : 20;
+}
+
+function buildingHeight3D() {
+  return effectiveFloors3D() * WORLDS.floorH;
+}
+
+function screenToWorldX(sx) {
+  const bx = buildingX(), bw = buildingW();
+  return (sx - (bx + bw/2)) * (WORLDS.buildingW / bw);
+}
+
+function screenToWorldY(sy) {
+  return (groundY() - sy) * (WORLDS.floorH / floorH());
+}
+
+// ===================================================================
+//  SPRITE HELPER
+// ===================================================================
+
+function makeTextSprite(text, fontSize, color, bgColor) {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 128;
+  const ctx = c.getContext('2d');
+  if (bgColor) { ctx.fillStyle = bgColor; ctx.fillRect(0, 0, c.width, c.height); }
+  ctx.fillStyle = color || '#ffffff';
+  ctx.font = `bold ${fontSize || 48}px "Segoe UI","PingFang SC","Microsoft YaHei",sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 128, 64);
+  const tex = new THREE.CanvasTexture(c);
+  tex.minFilter = THREE.LinearFilter;
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(1.2, 0.6, 1);
+  return sprite;
+}
+
+// ===================================================================
+//  BUILDING CONSTRUCTION (no rooms — full-width stairs)
+// ===================================================================
+
+function rebuildBuilding() {
+  while (buildingGroup.children.length > 0) {
+    const child = buildingGroup.children[0];
+    if (child.geometry) child.geometry.dispose();
+    if (child.material) {
+      if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+      else child.material.dispose();
+    }
+    buildingGroup.remove(child);
+  }
+
+  const bw = WORLDS.buildingW;
+  const bd = WORLDS.buildingD;
+  const fh = WORLDS.floorH;
+  const maxF = effectiveFloors3D();
+  const bH = maxF * fh;
+
+  const bodyGeo = new THREE.BoxGeometry(bw, bH, bd);
+  const materials = [
+    new THREE.MeshStandardMaterial({ color: 0x455a64, roughness: 0.75, metalness: 0.2 }),
+    new THREE.MeshStandardMaterial({ color: 0x37474f, roughness: 0.85, metalness: 0.2 }),
+    new THREE.MeshStandardMaterial({ color: 0x37474f, roughness: 0.8, metalness: 0.2 }),
+    new THREE.MeshStandardMaterial({ color: 0x263238, roughness: 0.9, metalness: 0.1 }),
+    new THREE.MeshStandardMaterial({ color: 0x607d8b, roughness: 0.7, metalness: 0.2 }),
+    new THREE.MeshStandardMaterial({ color: 0x455a64, roughness: 0.85, metalness: 0.2 }),
+  ];
+  const body = new THREE.Mesh(bodyGeo, materials);
+  body.position.set(0, bH / 2, 0);
+  body.castShadow = true;
+  body.receiveShadow = true;
+  buildingGroup.add(body);
+
+  const lineStep = maxF > 100 ? 5 : 1;
+  for (let f = 0; f <= maxF; f += lineStep) {
+    const y = f * fh;
+    const pts = [
+      new THREE.Vector3(-bw/2, y, -bd/2),
+      new THREE.Vector3( bw/2, y, -bd/2),
+      new THREE.Vector3( bw/2, y,  bd/2),
+      new THREE.Vector3(-bw/2, y,  bd/2),
+      new THREE.Vector3(-bw/2, y, -bd/2),
+    ];
+    const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
+    const line = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0x263238, transparent: true, opacity: 0.4 }));
+    buildingGroup.add(line);
+  }
+
+  // Stairs span full width
+  for (let f = 0; f < maxF; f++) { buildStairFloor(f); }
+
+  // Floor number labels
+  for (let f = 0; f <= maxF; f += 5) {
+    const sprite = makeTextSprite(f + 'F', 40, 'rgba(255,255,255,0.55)', null);
+    sprite.position.set(-bw/2 - 0.7, f * fh + fh * 0.5, bd/2);
+    sprite.scale.set(1.0, 0.5, 1);
+    buildingGroup.add(sprite);
+  }
+
+  // Roof
+  const roofGeo = new THREE.BoxGeometry(bw + 0.4, 0.2, bd + 0.4);
+  const roofMat = new THREE.MeshStandardMaterial({ color: 0x37474f, roughness: 0.8 });
+  const roof = new THREE.Mesh(roofGeo, roofMat);
+  roof.position.set(0, bH + 0.1, 0);
+  roof.castShadow = true;
+  buildingGroup.add(roof);
+}
+
+function buildStairFloor(f) {
+  const bw = WORLDS.buildingW;
+  const bd = WORLDS.buildingD;
+  const fh = WORLDS.floorH;
+
+  // Full-width stairs
+  const stairsX0 = -bw/2 + 0.1;
+  const stairsX1 = bw/2 - 0.1;
+  const goRight = (f % 2 === 0);
+  const xStart = goRight ? stairsX0 : stairsX1;
+  const xEnd   = goRight ? stairsX1 : stairsX0;
+  const steps = 5;
+  const zFace = bd/2 + 0.04;
+
+  const stepMat = new THREE.MeshStandardMaterial({ color: 0xb0bec5, roughness: 0.55, metalness: 0.4 });
+
+  for (let s = 0; s < steps; s++) {
+    const t = s / steps;
+    const tNext = (s + 1) / steps;
+    const sx = xStart + (xEnd - xStart) * t;
+    const ex = xStart + (xEnd - xStart) * tNext;
+    const mx = (sx + ex) / 2;
+    const stepW = Math.abs(ex - sx) * 0.85;
+    const yPos = f * fh + (t + tNext) / 2 * fh;
+    const stepD = 0.12;
+    const stepH = fh / steps * 0.55;
+
+    const stepGeo = new THREE.BoxGeometry(stepW, stepH, stepD);
+    const step = new THREE.Mesh(stepGeo, stepMat);
+    step.position.set(mx, yPos, zFace + stepD/2);
+    step.castShadow = true;
+    step.userData = { floor: f, step: s, type: 'step' };
+    buildingGroup.add(step);
+
+    const riserGeo = new THREE.BoxGeometry(Math.abs(ex - sx), stepH * 0.4, stepD * 0.5);
+    const riser = new THREE.Mesh(riserGeo, stepMat);
+    riser.position.set(ex, yPos + stepH * 0.6, zFace + stepD/2);
+    riser.userData = { floor: f, step: s, type: 'riser' };
+    buildingGroup.add(riser);
+  }
+
+  const railPts = [
+    new THREE.Vector3(xStart, f * fh + fh * 0.15, zFace + 0.08),
+    new THREE.Vector3(xEnd, f * fh + fh * 0.85, zFace + 0.08),
+  ];
+  const railGeo = new THREE.BufferGeometry().setFromPoints(railPts);
+  const rail = new THREE.Line(railGeo, new THREE.LineDashedMaterial({ color: 0x78909c, dashSize: 0.06, gapSize: 0.1, transparent: true, opacity: 0.5 }));
+  rail.computeLineDistances();
+  buildingGroup.add(rail);
+}
+
+// ===================================================================
+//  PLAYER CHARACTER CREATION
+// ===================================================================
+
+function createPlayer(isCPU) {
+  const group = new THREE.Group();
+  const fh = WORLDS.floorH;
+  const bodyColor = isCPU ? 0xff8c42 : 0x81c784;
+  const skinColor = 0xffe0bd;
+
+  const bodyGeo = new THREE.CylinderGeometry(0.12 * fh, 0.17 * fh, 0.24 * fh, 8);
+  const bodyMat = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.6, emissive: bodyColor, emissiveIntensity: 0.3 });
+  const body = new THREE.Mesh(bodyGeo, bodyMat);
+  body.position.y = 0.12 * fh;
+  body.castShadow = true;
+  body.name = 'body';
+  group.add(body);
+
+  const headGeo = new THREE.SphereGeometry(0.11 * fh, 12, 12);
+  const headMat = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.5 });
+  const head = new THREE.Mesh(headGeo, headMat);
+  head.position.y = 0.30 * fh;
+  head.castShadow = true;
+  head.name = 'head';
+  group.add(head);
+
+  const eyeGeo = new THREE.SphereGeometry(0.022 * fh, 6, 6);
+  const eyeMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+  const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+  eyeL.position.set(-0.04 * fh, 0.32 * fh, 0.10 * fh);
+  group.add(eyeL);
+  const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
+  eyeR.position.set(0.04 * fh, 0.32 * fh, 0.10 * fh);
+  group.add(eyeR);
+
+  const armGeo = new THREE.CylinderGeometry(0.025 * fh, 0.03 * fh, 0.16 * fh, 6);
+  const armMat = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.5 });
+  const armL = new THREE.Mesh(armGeo, armMat);
+  armL.position.set(-0.14 * fh, 0.19 * fh, 0);
+  armL.rotation.z = 0.25;
+  group.add(armL);
+  const armR = new THREE.Mesh(armGeo, armMat);
+  armR.position.set(0.14 * fh, 0.19 * fh, 0);
+  armR.rotation.z = -0.25;
+  group.add(armR);
+
+  const legGeo = new THREE.CylinderGeometry(0.03 * fh, 0.035 * fh, 0.15 * fh, 6);
+  const legMat = new THREE.MeshStandardMaterial({ color: 0x37474f, roughness: 0.7 });
+  const legL = new THREE.Mesh(legGeo, legMat);
+  legL.position.set(-0.05 * fh, 0.04 * fh, 0);
+  group.add(legL);
+  const legR = new THREE.Mesh(legGeo, legMat);
+  legR.position.set(0.05 * fh, 0.04 * fh, 0);
+  group.add(legR);
+
+  const ringGeo = new THREE.TorusGeometry(0.22 * fh, 0.03 * fh, 8, 16);
+  const ringMat = new THREE.MeshBasicMaterial({ color: isCPU ? 0xff8c42 : 0x00ff88, transparent: true, opacity: 0.8 });
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.rotation.x = Math.PI / 2;
+  ring.name = 'ring';
+  group.add(ring);
+
+  const char = isCPU ? { icon: '🤖' } : CHARACTERS[characterKey];
+  const iconSprite = makeTextSprite(char ? char.icon : '🚶', 48, '#ffffff', null);
+  iconSprite.position.y = 0.50 * fh;
+  iconSprite.name = 'icon';
+  group.add(iconSprite);
+
+  if (isCPU) {
+    const cpuLabel = makeTextSprite('CPU', 28, '#ff8c42', null);
+    cpuLabel.position.y = 0.65 * fh;
+    cpuLabel.scale.set(0.4, 0.2, 1);
+    group.add(cpuLabel);
+  }
+
+  return group;
+}
+
+function disposeGroup(group) {
+  if (!group) return;
+  group.traverse(child => {
+    if (child.geometry) child.geometry.dispose();
+    if (child.material) {
+      if (Array.isArray(child.material)) child.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+      else { if (child.material.map) child.material.map.dispose(); child.material.dispose(); }
+    }
+  });
+}
+
+function getPlayer3DPosition(floorPos, offsetX, isCPU) {
+  const bw = WORLDS.buildingW;
+  const bd = WORLDS.buildingD;
+  const fh = WORLDS.floorH;
+
+  const y = floorPos * fh + fh * 0.35;
+
+  // Full-width stairs zigzag
+  const stairsX0 = -bw/2 + 0.1;
+  const stairsX1 = bw/2 - 0.1;
+  const fi = Math.floor(floorPos);
+  const frac = floorPos - fi;
+  const goRight = (fi % 2 === 0);
+  const xStart = goRight ? stairsX0 : stairsX1;
+  const xEnd   = goRight ? stairsX1 : stairsX0;
+  const stairX = xStart + (xEnd - xStart) * frac;
+
+  const maxLean3D = bw * 0.35;
+  const scale3D = WORLDS.buildingW / buildingW();
+  const offset3D = offsetX * scale3D;
+  const clampedOffset = Math.max(-maxLean3D, Math.min(maxLean3D, offset3D));
+
+  const x = stairX + clampedOffset;
+  const z = bd/2 + 0.15;
+
+  return new THREE.Vector3(x, y, z);
+}
+
+// ===================================================================
+//  WATER SYSTEM
+// ===================================================================
+
+function createWater() {
+  if (waterMesh) { waterGroup.remove(waterMesh); waterMesh.geometry.dispose(); waterMesh.material.dispose(); }
+  if (waterFoam) { waterGroup.remove(waterFoam); waterFoam.geometry.dispose(); waterFoam.material.dispose(); }
+
+  const waterGeo = new THREE.PlaneGeometry(WATER_SIZE, WATER_SIZE, WATER_SEG, WATER_SEG);
+  waterGeo.rotateX(-Math.PI / 2);
+
+  const waterMat = new THREE.MeshPhysicalMaterial({
+    color: 0x1565c0, transparent: true, opacity: 0.75,
+    roughness: 0.15, metalness: 0.2, side: THREE.DoubleSide, depthWrite: false,
+  });
+  waterMesh = new THREE.Mesh(waterGeo, waterMat);
+  waterMesh.position.y = 0;
+  waterMesh.renderOrder = 1;
+  waterMesh.visible = false;
+  waterGroup.add(waterMesh);
+
+  const foamGeo = new THREE.PlaneGeometry(WATER_SIZE + 1, WATER_SIZE + 1, 40, 40);
+  foamGeo.rotateX(-Math.PI / 2);
+  const foamMat = new THREE.MeshBasicMaterial({
+    color: 0x90caf9, transparent: true, opacity: 0.15, side: THREE.DoubleSide, depthWrite: false,
+  });
+  waterFoam = new THREE.Mesh(foamGeo, foamMat);
+  waterFoam.position.y = 0.04;
+  waterFoam.visible = false;
+  waterFoam.renderOrder = 2;
+  waterGroup.add(waterFoam);
+}
+
+function updateWaterVisuals() {
+  if (!waterMesh) return;
+  const waterY = waterLevel * WORLDS.floorH;
+
+  if (elapsed < GRACE_PERIOD) {
+    waterMesh.visible = false;
+    if (waterFoam) waterFoam.visible = false;
+    return;
+  }
+
+  waterMesh.visible = true;
+  if (waterFoam) waterFoam.visible = true;
+  waterMesh.position.y = waterY;
+  if (waterFoam) waterFoam.position.y = waterY + 0.04;
+
+  const positions = waterMesh.geometry.attributes.position.array;
+  const now = elapsed;
+  for (let i = 0; i < positions.length; i += 3) {
+    const x = positions[i];
+    const z = positions[i + 2];
+    positions[i + 1] = Math.sin(x * 0.6 + now * 2.5) * 0.06
+                     + Math.sin(z * 0.8 + now * 1.8) * 0.05
+                     + Math.sin((x + z) * 0.4 + now * 3.2) * 0.04
+                     + Math.sin(x * 1.2 - now * 2.0) * 0.03;
+  }
+  waterMesh.geometry.attributes.position.needsUpdate = true;
+  waterMesh.geometry.computeVertexNormals();
+}
+
+// ===================================================================
+//  PARTICLE SYSTEM
+// ===================================================================
+
+const MAX_PARTICLES = 300;
+let particlePool = [];
+let particleActive = 0;
+
+function createParticleSystem() {
+  const geo = new THREE.BufferGeometry();
+  const posArr = new Float32Array(MAX_PARTICLES * 3);
+  const colArr = new Float32Array(MAX_PARTICLES * 3);
+  geo.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(colArr, 3));
+
+  const mat = new THREE.PointsMaterial({
+    size: 0.04, vertexColors: true, transparent: true, opacity: 0.8,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  });
+
+  if (particleSystem) { scene.remove(particleSystem); particleSystem.geometry.dispose(); particleSystem.material.dispose(); }
+  particleSystem = new THREE.Points(geo, mat);
+  scene.add(particleSystem);
+
+  particlePool = [];
+  for (let i = 0; i < MAX_PARTICLES; i++) {
+    particlePool.push({ life: 0, maxLife: 0, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, color: '#ffffff' });
+  }
+  particleActive = 0;
+}
+
+function spawnParticles3D(wx, wy, wz, count, color, spread) {
+  for (let i = 0; i < count; i++) {
+    if (particleActive >= MAX_PARTICLES) return;
+    const p = particlePool[particleActive];
+    p.x = wx; p.y = wy; p.z = wz;
+    p.vx = (Math.random() - 0.5) * spread;
+    p.vy = Math.random() * spread * 1.5;
+    p.vz = (Math.random() - 0.5) * spread;
+    p.life = 0.4 + Math.random() * 0.6;
+    p.maxLife = p.life;
+    p.color = color;
+    particleActive++;
+  }
+}
+
+function updateParticles3D(dt) {
+  if (!particleSystem) return;
+  const posArr = particleSystem.geometry.attributes.position.array;
+  const colArr = particleSystem.geometry.attributes.color.array;
+
+  let writeIdx = 0;
+  for (let i = 0; i < particleActive; i++) {
+    const p = particlePool[i];
+    p.life -= dt;
+    if (p.life <= 0) {
+      particlePool[i] = particlePool[particleActive - 1];
+      particlePool[particleActive - 1] = p;
+      particleActive--;
+      i--;
+      continue;
+    }
+    p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+    posArr[writeIdx * 3] = p.x;
+    posArr[writeIdx * 3 + 1] = p.y;
+    posArr[writeIdx * 3 + 2] = p.z;
+    const hex = p.color.replace('#', '');
+    colArr[writeIdx * 3] = parseInt(hex.substring(0, 2), 16) / 255;
+    colArr[writeIdx * 3 + 1] = parseInt(hex.substring(2, 4), 16) / 255;
+    colArr[writeIdx * 3 + 2] = parseInt(hex.substring(4, 6), 16) / 255;
+    writeIdx++;
+  }
+
+  for (let i = writeIdx; i < MAX_PARTICLES; i++) {
+    posArr[i * 3] = 0;
+    posArr[i * 3 + 1] = -999;
+    posArr[i * 3 + 2] = 0;
+  }
+
+  particleSystem.geometry.attributes.position.needsUpdate = true;
+  particleSystem.geometry.attributes.color.needsUpdate = true;
+  particleSystem.geometry.setDrawRange(0, writeIdx);
+}
+
+// ===================================================================
+//  DOM REFS
+// ===================================================================
+
+const container = document.getElementById('game-container');
+const startScreen = document.getElementById('start-screen');
+const rulesScreen = document.getElementById('rules-screen');
+const winScreen = document.getElementById('win-screen');
+const loseScreen = document.getElementById('lose-screen');
+const climbBtn = document.getElementById('climb-btn');
+const drownBarWrap = document.getElementById('drown-bar-wrap');
+const drownBar = document.getElementById('drown-bar');
+const hudTime = document.getElementById('hud-time');
+const hudFloor = document.getElementById('hud-floor');
+const hudWater = document.getElementById('hud-water');
+
+// ===================================================================
+//  LEVEL SYSTEM
+// ===================================================================
+
+const LEVELS = [
+  { id: 1, floors: 100,  waterSpeed: 1.2,  nameZh: '第一关', nameEn: 'Level 1',  descZh: '100层 · 洪水急流',    descEn: '100F · Rapid Flood' },
+  { id: 2, floors: 200,  waterSpeed: 1.5,  nameZh: '第二关', nameEn: 'Level 2',  descZh: '200层 · 洪水狂奔',    descEn: '200F · Raging Flood' },
+  { id: 3, floors: 300,  waterSpeed: 1.8,  nameZh: '第三关', nameEn: 'Level 3',  descZh: '300层 · 洪水汹涌',    descEn: '300F · Surging Flood' },
+  { id: 4, floors: 400,  waterSpeed: 2.2,  nameZh: '第四关', nameEn: 'Level 4',  descZh: '400层 · 洪水咆哮',    descEn: '400F · Roaring Flood' },
+  { id: 5, floors: 500,  waterSpeed: 2.6,  nameZh: '第五关', nameEn: 'Level 5',  descZh: '500层 · 洪水怒涛',    descEn: '500F · Furious Flood' },
+  { id: 6, floors: 600,  waterSpeed: 3.0,  nameZh: '第六关', nameEn: 'Level 6',  descZh: '600层 · 洪水暴虐',    descEn: '600F · Violent Flood' },
+  { id: 7, floors: 700,  waterSpeed: 3.5,  nameZh: '第七关', nameEn: 'Level 7',  descZh: '700层 · 洪水灭顶',    descEn: '700F · Devastating Flood' },
+  { id: 8, floors: 800,  waterSpeed: 4.0,  nameZh: '第八关', nameEn: 'Level 8',  descZh: '800层 · 洪水滔天',    descEn: '800F · Cataclysmic Flood' },
+  { id: 9, floors: 900,  waterSpeed: 4.6,  nameZh: '第九关', nameEn: 'Level 9',  descZh: '900层 · 洪水末日',    descEn: '900F · Apocalyptic Flood' },
+  { id: 10, floors: 1000, waterSpeed: 5.2, nameZh: '第十关', nameEn: 'Level 10', descZh: '1000层 · 终极洪水',   descEn: '1000F · Ultimate Flood' },
+];
+
+const PROGRESS_KEY = 'floodEscape_progress';
+let unlockedLevel = 1;
+
+function loadProgress() {
+  try {
+    const saved = localStorage.getItem(PROGRESS_KEY);
+    if (saved) { const v = parseInt(saved, 10); if (v >= 1 && v <= LEVELS.length + 1) unlockedLevel = v; }
+  } catch(e) {}
+}
+
+function saveProgress() {
+  try { localStorage.setItem(PROGRESS_KEY, String(unlockedLevel)); } catch(e) {}
+}
+
+function resetProgress() {
+  unlockedLevel = 1;
+  selectedLevelId = Math.min(unlockedLevel, LEVELS.length);
+  saveProgress();
+  renderLevelGrid();
+  updateStartButton();
+}
+
+// ===================================================================
+//  SETTINGS
+// ===================================================================
+
+const CHARACTERS = {
+  athlete: { name: '运动员', icon: '🏃', speed: 1.5, color: '#4fc3f7' },
+  normal:  { name: '普通人', icon: '🚶', speed: 0.95, color: '#81c784' },
+  elder:   { name: '老人',   icon: '🧑‍🦯', speed: 0.55, color: '#ffb74d' },
+};
+
+let currentLevel = null;
+let characterKey = 'normal';
+let selectedLevelId = null;
+
+function detectTimeOfDay() {
+  const hour = new Date().getHours();
+  const minute = new Date().getMinutes();
+  const totalMinutes = hour * 60 + minute;
+  return !(totalMinutes >= 60 && totalMinutes <= 1080);
+}
+let isNightMode = detectTimeOfDay();
+
+const GRACE_PERIOD = 10;
+const DROWN_LIMIT = 10;
+
+// ===================================================================
+//  I18N
+// ===================================================================
+
+let lang = 'zh';
+const T = {
+  title:          { zh:'逃离洪水', en:'Escape the Flood' },
+  subtitle:       { zh:'逃离洪水', en:'ESCAPE THE FLOOD' },
+  levelSetting:   { zh:'🏆 选择关卡', en:'🏆 Select Level' },
+  daynightSetting:{ zh:'🌗 时间场景', en:'🌗 Time of Day' },
+  nightMode:      { zh:'🌙 黑夜', en:'🌙 Night' },
+  dayMode:        { zh:'☀️ 白天', en:'☀️ Day' },
+  charSetting:    { zh:'🧑 选择角色', en:'🧑 Choose Character' },
+  athlete:        { zh:'运动员', en:'Athlete' },
+  normal:         { zh:'普通人', en:'Normal' },
+  elder:          { zh:'老人', en:'Elder' },
+  speedFast:      { zh:'速度: 快', en:'Speed: Fast' },
+  speedMid:       { zh:'速度: 中', en:'Speed: Medium' },
+  speedSlow:      { zh:'速度: 慢', en:'Speed: Slow' },
+  btnStart:       { zh:'开 始 游 戏', en:'START GAME' },
+  btnSelectLevel: { zh:'选 择 关 卡', en:'SELECT A LEVEL' },
+  btnConfirmLevel:{ zh:'选择关卡', en:'Select Level' },
+  btnRules:       { zh:'📋 游戏规则', en:'📋 Rules' },
+  btnResetProgress: { zh:'↺ 重置进度', en:'↺ Reset Progress' },
+  rulesTitle:     { zh:'📋 游戏规则', en:'📋 Game Rules' },
+  btnBack:        { zh:'返回', en:'Back' },
+  btnFindRules:   { zh:'寻回规则', en:'Retrieve Rules' },
+  winTitle:       { zh:'🏆 你赢了!', en:'🏆 You Win!' },
+  loseTitle:      { zh:'💀 你被淹死了', en:'💀 You Drowned' },
+  cpuWinTitle:    { zh:'😞 对手先到了!', en:'😞 Opponent Beat You!' },
+  btnRestart:     { zh:'再来一局', en:'Play Again' },
+  btnRetry:       { zh:'再试一次', en:'Try Again' },
+  btnHome:        { zh:'回到首页', en:'Main Menu' },
+  btnNextLevel:   { zh:'▶ 下一关', en:'▶ Next Level' },
+  hudTime:        { zh:'时间', en:'Time' },
+  hudFloor:       { zh:'楼层', en:'Floor' },
+  hudWater:       { zh:'水位', en:'Water' },
+  hudBreath:      { zh:'憋气上限', en:'Breath' },
+  climbBtn:       { zh:'爬!', en:'GO!' },
+  homeBtnTop:     { zh:'🏠 首页', en:'🏠 Home' },
+  btnLevelSelect: { zh:'选择关卡', en:'Select Level' },
+  viewCpuBtn:     { zh:'👀 看对手', en:'👀 View CPU' },
+  cpuReached:     { zh:'到达', en:'reached' },
+  cpuDrownedStat: { zh:'已淹死', en:'drowned' },
+  cpuDrownedWin:  { zh:'对手被淹死了', en:'Opponent Drowned!' },
+  reachedFloor:   { zh:'到达第', en:'Reached floor ' },
+  floorsTotal:    { zh:'层 (共', en:' of ' },
+  statsTime:      { zh:'用时', en:'Time' },
+  statsRoof:      { zh:'到达楼顶', en:'Reached rooftop!' },
+  statsYouAt:     { zh:'你到达第', en:'You reached floor ' },
+  opponentRoof:   { zh:'对手先到达楼顶!', en:'Opponent reached the roof first!' },
+  levelUnlocked:  { zh:'🎉 第{0}关已解锁!', en:'🎉 Level {0} Unlocked!' },
+  allCleared:     { zh:'🎉 恭喜通关全部10关!', en:'🎉 All 10 levels cleared!' },
+  rulesFound:     { zh:'📋 已寻回规则', en:'📋 Rules Recovered!' },
+  statsBreath:    { zh:'憋气上限', en:'Breath limit' },
+  confirmReset:   { zh:'确定要重置所有关卡进度吗？', en:'Reset all level progress?' },
+};
+
+function t(key, replacements) {
+  let s = (T[key] && T[key][lang]) || key;
+  if (replacements) {
+    for (const rk in replacements) s = s.replace('{'+rk+'}', replacements[rk]);
+  }
+  return s;
+}
+
+// ===================================================================
+//  GAME STATE
+// ===================================================================
+
+const STATE = { START: 0, PLAYING: 1, WIN: 2, LOSE: 3 };
+let state = STATE.START;
+
+let playerFloor = 0;
+let playerOffsetX = 0;
+let mouseX = -100, mouseY = -100;
+let waterLevel = 0;
+let WATER_SPEED = 0.6;
+let drownTime = 0;
+let drownLimit = DROWN_LIMIT;
+let elapsed = 0;
+let gameStarted = false;
+
+// CPU opponent state (always active)
+let cpuFloor = 0;
+let cpuOffsetX = 0;
+let cpuDrownTime = 0;
+let cpuDrownLimit = DROWN_LIMIT;
+let cpuAlive = true;
+let cpuDeathTime = 0;
+let cpuLookTimer = 0;
+let cpuCharKey = 'normal';
+let autoClimb = false;
+
+let shakeAmount = 0;
+let cameraY3D = 0;
+
+// ===================================================================
+//  CANVAS SIZING
+// ===================================================================
+
+let W, H;
+
+function resize() {
+  const rect = container.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = rect.width;
+  H = rect.height;
+  camera.aspect = W / H;
+  camera.updateProjectionMatrix();
+  renderer.setSize(W, H);
+  renderer.setPixelRatio(dpr);
+  recalcWorldConstants();
+}
+
+window.addEventListener('resize', resize);
+resize();
+
+// ===================================================================
+//  INPUT
+// ===================================================================
+
+function updateMouseFromEvent(e) {
+  const rect = canvas.getBoundingClientRect();
+  mouseX = (e.clientX - rect.left) * (W / rect.width);
+  mouseY = (e.clientY - rect.top) * (H / rect.height);
+  if (state === STATE.PLAYING) updateCursor3D();
+}
+
+canvas.addEventListener('mousemove', updateMouseFromEvent);
+container.addEventListener('mousemove', updateMouseFromEvent);
+document.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  mouseX = (e.clientX - rect.left) * (W / rect.width);
+  mouseY = (e.clientY - rect.top) * (H / rect.height);
+});
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  updateMouseFromEvent(e.touches[0]);
+  if (state === STATE.PLAYING) updateCursor3D();
+}, { passive: false });
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  updateMouseFromEvent(e.touches[0]);
+  if (state === STATE.START && selectedLevelId) startGame();
+}, { passive: false });
+canvas.addEventListener('mouseleave', () => { if (cursorDot) cursorDot.visible = false; });
+canvas.addEventListener('mouseenter', updateMouseFromEvent);
+canvas.addEventListener('click', e => {
+  if (state === STATE.START && selectedLevelId) startGame();
+});
+
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
+    e.preventDefault();
+    if (state === STATE.START && selectedLevelId) { startGame(); return; }
+    if (state === STATE.PLAYING) {
+      playerFloor += CHARACTERS[characterKey].speed * 2 * 0.016;
+      if (currentLevel) playerFloor = Math.min(currentLevel.floors, playerFloor);
+    }
+  }
+  if (e.code === 'ArrowDown' || e.code === 'KeyS') e.preventDefault();
+});
+
+// ===================================================================
+//  LEVEL GRID UI
+// ===================================================================
+
+function renderLevelGrid() {
+  const grid = document.getElementById('level-grid');
+  grid.innerHTML = '';
+
+  LEVELS.forEach(lvl => {
+    const card = document.createElement('div');
+    card.className = 'level-card';
+    card.dataset.levelId = lvl.id;
+
+    if (lvl.id < unlockedLevel) card.classList.add('completed');
+    else if (lvl.id === unlockedLevel) card.classList.add('current');
+    else card.classList.add('locked');
+
+    const num = document.createElement('span');
+    num.className = 'level-num';
+    num.textContent = lvl.id;
+
+    const floors = document.createElement('span');
+    floors.className = 'level-floors';
+    floors.textContent = lang === 'zh' ? lvl.descZh : lvl.descEn;
+
+    const water = document.createElement('span');
+    water.className = 'level-water';
+    water.textContent = '🌊 ' + lvl.waterSpeed.toFixed(2) + (lang === 'zh' ? ' 层/秒' : ' floors/s');
+
+    const lock = document.createElement('span');
+    lock.className = 'level-lock';
+    lock.textContent = lvl.id > unlockedLevel ? '🔒' : (lvl.id < unlockedLevel ? '⭐' : '');
+
+    card.appendChild(num);
+    card.appendChild(floors);
+    card.appendChild(water);
+    card.appendChild(lock);
+
+    if (lvl.id === selectedLevelId) card.classList.add('selected');
+
+    card.addEventListener('click', () => {
+      if (lvl.id > unlockedLevel) return;
+      document.querySelectorAll('.level-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+    });
+
+    grid.appendChild(card);
+  });
+}
+
+function updateStartButton() {
+  const btn = document.getElementById('btn-start');
+  if (selectedLevelId) {
+    btn.textContent = t('btnStart');
+    btn.disabled = false;
+    btn.style.opacity = '1';
+  } else {
+    btn.textContent = t('btnSelectLevel');
+    btn.disabled = true;
+    btn.style.opacity = '0.4';
+  }
+}
+
+function refreshLevelGrid() {
+  renderLevelGrid();
+  if (selectedLevelId && selectedLevelId > unlockedLevel) {
+    selectedLevelId = null;
+    updateStartButton();
+  }
+}
+
+// ===================================================================
+//  LANGUAGE
+// ===================================================================
+
+function applyLanguage() {
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('selected'));
+  document.querySelector(`[data-lang="${lang}"]`).classList.add('selected');
+
+  document.getElementById('btn-rules').textContent = t('btnRules');
+  document.getElementById('btn-rules-back').textContent = t('btnBack');
+  document.getElementById('climb-btn').textContent = t('climbBtn');
+  document.getElementById('home-btn-top').textContent = t('homeBtnTop');
+  document.getElementById('view-cpu-btn').textContent = t('viewCpuBtn');
+  document.getElementById('btn-reset-progress').textContent = t('btnResetProgress');
+  document.getElementById('btn-select-level').textContent = t('btnConfirmLevel');
+  document.getElementById('btn-levels-win').textContent = t('btnLevelSelect');
+  document.getElementById('btn-levels-lose').textContent = t('btnLevelSelect');
+  document.querySelector('#win-screen .end-title').textContent = t('winTitle');
+  document.querySelector('#lose-screen .end-title').textContent = t('loseTitle');
+  document.querySelector('#win-screen [data-action="restart"]').textContent = t('btnRestart');
+  document.querySelector('#lose-screen [data-action="restart"]').textContent = t('btnRetry');
+  document.querySelectorAll('[data-action="home"]').forEach(b => b.textContent = t('btnHome'));
+  document.getElementById('btn-next-level').textContent = t('btnNextLevel');
+
+  document.querySelectorAll('#hud .hud-lbl')[0].textContent = t('hudTime');
+  document.querySelectorAll('#hud .hud-lbl')[1].textContent = t('hudFloor');
+  document.querySelectorAll('#hud .hud-lbl')[2].textContent = t('hudWater');
+  document.querySelectorAll('#hud .hud-lbl')[3].textContent = t('hudBreath');
+
+  document.querySelectorAll('.setting-label')[0].textContent = t('levelSetting');
+  document.querySelectorAll('.setting-label')[1].textContent = t('charSetting');
+  document.querySelectorAll('.setting-label')[2].textContent = t('daynightSetting');
+
+  const charCards = document.querySelectorAll('#char-select .char-card');
+  charCards[0].querySelector('.char-name').textContent = t('athlete');
+  charCards[0].querySelector('.char-speed').textContent = t('speedFast');
+  charCards[1].querySelector('.char-name').textContent = t('normal');
+  charCards[1].querySelector('.char-speed').textContent = t('speedMid');
+  charCards[2].querySelector('.char-name').textContent = t('elder');
+  charCards[2].querySelector('.char-speed').textContent = t('speedSlow');
+
+  document.querySelector('[data-daynight="night"]').childNodes[0].textContent = t('nightMode');
+  document.querySelector('[data-daynight="day"]').childNodes[0].textContent = t('dayMode');
+
+  document.querySelector('#start-screen .title').textContent = t('title');
+  document.querySelector('#start-screen .subtitle').textContent = t('subtitle');
+
+  refreshLevelGrid();
+  updateStartButton();
+}
+
+document.getElementById('lang-toggle').addEventListener('click', e => {
+  const btn = e.target.closest('.lang-btn');
+  if (!btn) return;
+  lang = btn.dataset.lang;
+  applyLanguage();
+});
+
+// ===================================================================
+//  START SCREEN UI
+// ===================================================================
+
+document.getElementById('char-select').addEventListener('click', e => {
+  const card = e.target.closest('.char-card');
+  if (!card) return;
+  document.querySelectorAll('#char-select .char-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  characterKey = card.dataset.char;
+});
+
+document.getElementById('btn-start').addEventListener('click', e => {
+  e.stopPropagation();
+  const selCard = document.querySelector('.level-card.selected');
+  if (selCard) {
+    const cardLevelId = parseInt(selCard.dataset.levelId, 10);
+    if (selectedLevelId !== cardLevelId) {
+      selectedLevelId = cardLevelId;
+      updateStartButton();
+    }
+  }
+  if (selectedLevelId) startGame();
+});
+
+document.getElementById('daynight-toggle').addEventListener('click', e => {
+  const btn = e.target.closest('.mode-btn');
+  if (!btn) return;
+  document.querySelectorAll('#daynight-toggle .mode-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  isNightMode = btn.dataset.daynight === 'night';
+  applyDayNight();
+});
+
+document.getElementById('btn-rules').addEventListener('click', () => {
+  const allCleared = unlockedLevel > LEVELS.length;
+  document.getElementById('rules-locked').style.display = allCleared ? 'none' : '';
+  document.getElementById('rules-content').style.display = allCleared ? '' : 'none';
+  document.getElementById('btn-rules-back').textContent = allCleared ? t('btnBack') : t('btnFindRules');
+  startScreen.classList.add('hidden');
+  rulesScreen.classList.remove('hidden');
+});
+document.getElementById('btn-rules-back').addEventListener('click', () => {
+  rulesScreen.classList.add('hidden');
+  startScreen.classList.remove('hidden');
+});
+document.getElementById('home-btn-top').addEventListener('click', e => { e.stopPropagation(); goHome(); });
+document.getElementById('view-cpu-btn').addEventListener('click', () => { cpuLookTimer = 2.5; });
+document.getElementById('auto-climb-btn').addEventListener('click', e => {
+  e.stopPropagation();
+  autoClimb = !autoClimb;
+  const btn = document.getElementById('auto-climb-btn');
+  if (autoClimb) { btn.textContent = '⏸ 停止攀爬'; btn.classList.add('active'); }
+  else { btn.textContent = '🤖 自动攀爬'; btn.classList.remove('active'); }
+});
+document.getElementById('btn-reset-progress').addEventListener('click', () => {
+  if (confirm(t('confirmReset'))) resetProgress();
+});
+document.getElementById('btn-next-level').addEventListener('click', e => {
+  e.stopPropagation();
+  if (currentLevel && currentLevel.id < LEVELS.length) {
+    selectedLevelId = currentLevel.id + 1;
+    startGame();
+  }
+});
+document.getElementById('btn-select-level').addEventListener('click', e => {
+  e.stopPropagation();
+  const grid = document.getElementById('level-grid');
+  const label = document.getElementById('level-label-group');
+  if (grid.style.display === 'none') {
+    grid.style.display = '';
+    label.style.display = '';
+  } else {
+    grid.style.display = 'none';
+    label.style.display = 'none';
+  }
+});
+document.getElementById('btn-levels-win').addEventListener('click', e => {
+  e.stopPropagation();
+  goHome();
+  document.getElementById('level-grid').style.display = '';
+  document.getElementById('level-label-group').style.display = '';
+});
+document.getElementById('btn-levels-lose').addEventListener('click', e => {
+  e.stopPropagation();
+  goHome();
+  document.getElementById('level-grid').style.display = '';
+  document.getElementById('level-label-group').style.display = '';
+});
+document.querySelectorAll('[data-action="restart"]').forEach(btn => {
+  btn.addEventListener('click', e => { e.stopPropagation(); startGame(); });
+});
+document.querySelectorAll('[data-action="home"]').forEach(btn => {
+  btn.addEventListener('click', e => { e.stopPropagation(); goHome(); });
+});
+
+// ===================================================================
+//  GAME FLOW
+// ===================================================================
+
+function startGame() {
+  if (!selectedLevelId || selectedLevelId > unlockedLevel) return;
+  if (!characterKey) return;
+
+  currentLevel = LEVELS.find(l => l.id === selectedLevelId);
+  if (!currentLevel) return;
+
+  WATER_SPEED = currentLevel.waterSpeed;
+
+  playerFloor = 0;
+  playerOffsetX = 0;
+  mouseX = buildingX() + buildingW() * 0.6;
+  mouseY = groundY() - floorH() * 1.5;
+  waterLevel = 0;
+  drownTime = 0;
+  drownLimit = DROWN_LIMIT;
+  elapsed = 0;
+  gameStarted = false;
+
+  cpuFloor = 0;
+  cpuOffsetX = 0;
+  cpuDrownTime = 0;
+  cpuDrownLimit = DROWN_LIMIT;
+  cpuAlive = true;
+  cpuDeathTime = 0;
+  cpuLookTimer = 0;
+  cpuCharKey = ['athlete','normal','elder'][Math.floor(Math.random() * 3)];
+
+  shakeAmount = 0;
+  cameraY3D = 0;
+
+  state = STATE.PLAYING;
+  drownBarWrap.classList.remove('visible');
+  drownBar.style.width = '0%';
+  startScreen.classList.add('hidden');
+  winScreen.classList.add('hidden');
+  loseScreen.classList.add('hidden');
+  document.getElementById('hud').style.opacity = '0';
+  climbBtn.style.display = 'none';
+  document.getElementById('home-btn-top').style.display = 'none';
+  document.getElementById('view-cpu-btn').style.display = 'none';
+  document.getElementById('auto-climb-btn').style.display = 'none';
+
+  autoClimb = false;
+  const autoClimbBtn = document.getElementById('auto-climb-btn');
+  autoClimbBtn.textContent = '🤖 自动攀爬';
+  autoClimbBtn.classList.remove('active');
+
+  recalcWorldConstants();
+  rebuildBuilding();
+  createParticleSystem();
+  createWater();
+  createGround();
+  createStars();
+  createCursorDot();
+  applyDayNight();
+
+  if (playerGroup) { scene.remove(playerGroup); disposeGroup(playerGroup); }
+  if (cpuPlayerGroup) { scene.remove(cpuPlayerGroup); disposeGroup(cpuPlayerGroup); }
+  playerGroup = createPlayer(false);
+  scene.add(playerGroup);
+  cpuPlayerGroup = createPlayer(true);
+  scene.add(cpuPlayerGroup);
+
+  updateHUD();
+}
+
+function onGameWin(cpuDrowned) {
+  const cpuInfo = cpuDrowned
+    ? ` | ${t('cpuDrownedWin')}`
+    : ` | CPU: ${cpuAlive ? t('cpuReached') + ' ' + Math.floor(cpuFloor) + 'F' : t('cpuDrownedStat')}`;
+
+  let unlockMsg = '';
+  if (currentLevel.id >= unlockedLevel) {
+    unlockedLevel = currentLevel.id + 1;
+    if (unlockedLevel > LEVELS.length) unlockedLevel = LEVELS.length + 1;
+    saveProgress();
+    if (currentLevel.id < LEVELS.length) {
+      unlockMsg = '\n' + t('levelUnlocked', {0: String(currentLevel.id + 1)});
+    } else {
+      unlockMsg = '\n' + t('allCleared');
+    }
+  }
+
+  const winTitle = document.querySelector('#win-screen .end-title');
+  winTitle.textContent = cpuDrowned ? t('cpuDrownedWin') : t('winTitle');
+
+  document.getElementById('rules-found-msg').style.display = currentLevel.id === LEVELS.length ? '' : 'none';
+
+  document.getElementById('win-stats').textContent =
+    `${t('statsTime')} ${elapsed.toFixed(1)}s | ${t('statsRoof')} | ${t('statsBreath')} ${drownLimit}s` + cpuInfo + unlockMsg;
+
+  const btnNext = document.getElementById('btn-next-level');
+  btnNext.style.display = (currentLevel.id < LEVELS.length) ? '' : 'none';
+
+  winScreen.classList.remove('hidden');
+  refreshLevelGrid();
+}
+
+function goHome() {
+  state = STATE.START;
+  gameStarted = false;
+  currentLevel = null;
+  autoClimb = false;
+  const autoClimbBtn = document.getElementById('auto-climb-btn');
+  autoClimbBtn.textContent = '🤖 自动攀爬';
+  autoClimbBtn.classList.remove('active');
+  document.getElementById('hud').style.opacity = '0';
+  climbBtn.style.display = 'none';
+  document.getElementById('home-btn-top').style.display = 'none';
+  document.getElementById('view-cpu-btn').style.display = 'none';
+  document.getElementById('auto-climb-btn').style.display = 'none';
+  rulesScreen.classList.add('hidden');
+  winScreen.classList.add('hidden');
+  loseScreen.classList.add('hidden');
+  startScreen.classList.remove('hidden');
+  selectedLevelId = Math.min(unlockedLevel, LEVELS.length);
+  refreshLevelGrid();
+  updateStartButton();
+}
+
+// ===================================================================
+//  2D LAYOUT HELPERS
+// ===================================================================
+
+function buildingW() { return W * 0.33; }
+function buildingX() { return W * 0.30; }
+function effectiveFloors() { return currentLevel ? currentLevel.floors : 20; }
+function floorH() {
+  const avail = H * 0.78;
+  return Math.max(18, Math.min(40, avail / (effectiveFloors() + 1)));
+}
+function groundY() { return H * 0.88; }
+
+function getPlayerAbsY() { return groundY() - (playerFloor + 0.5) * floorH(); }
+
+function getStairX(floor) {
+  const bx = buildingX(), bw = buildingW();
+  const stairsX = bx + 4;
+  const stairsW = bw - 8;
+  const fi = Math.floor(floor);
+  const frac = floor - fi;
+  const goRight = (fi % 2 === 0);
+  const xStart = goRight ? stairsX + stairsW * 0.1 : stairsX + stairsW * 0.65;
+  const xEnd   = goRight ? stairsX + stairsW * 0.65 : stairsX + stairsW * 0.1;
+  return xStart + (xEnd - xStart) * frac;
+}
+
+function waterScreenY() {
+  return groundY() - waterLevel * floorH();
+}
+
+// ===================================================================
+//  GAME LOGIC UPDATE
+// ===================================================================
+
+let lastTime = performance.now();
+
+function update(dt) {
+  if (state !== STATE.PLAYING) return;
+
+  dt = Math.min(dt, 0.1);
+  elapsed += dt;
+
+  const char = CHARACTERS[characterKey];
+  const fh = floorH();
+  const climbSpeed = char.speed;
+
+  // Auto-climb
+  if (autoClimb) {
+    const prevFloor = playerFloor;
+    playerFloor += climbSpeed * dt;
+    if (currentLevel) playerFloor = Math.min(currentLevel.floors, playerFloor);
+    if (Math.floor(playerFloor * 4) !== Math.floor(prevFloor * 4)) {
+      const p3 = getPlayer3DPosition(playerFloor, playerOffsetX, false);
+      spawnParticles3D(p3.x, p3.y, p3.z, 2, '#cccccc', 0.2);
+    }
+  }
+
+  // Mouse-direct movement
+  const playerScreenY = groundY() - (playerFloor + 0.5) * fh;
+  const stairX = getStairX(playerFloor);
+
+  if (!autoClimb && mouseX > 0 && mouseY < playerScreenY - fh * 0.05) {
+    const prevFloor = playerFloor;
+    const distToMouse = playerScreenY - mouseY;
+    const speedMult = Math.min(2.5, 1.0 + distToMouse / (fh * 2.5));
+    playerFloor += climbSpeed * speedMult * dt;
+    if (currentLevel) playerFloor = Math.min(currentLevel.floors, playerFloor);
+    if (Math.floor(playerFloor * 4) !== Math.floor(prevFloor * 4)) {
+      const p3 = getPlayer3DPosition(playerFloor, playerOffsetX, false);
+      spawnParticles3D(p3.x, p3.y, p3.z, 2, '#cccccc', 0.2);
+    }
+  }
+
+  // Horizontal movement
+  if (!autoClimb) {
+    const maxLean = buildingW() * 0.4;
+    const targetOffset = Math.max(-maxLean, Math.min(maxLean, mouseX - stairX));
+    playerOffsetX += (targetOffset - playerOffsetX) * Math.min(1, dt * 14);
+  } else {
+    playerOffsetX += (0 - playerOffsetX) * Math.min(1, dt * 6);
+  }
+
+  if (cpuDeathTime > 0) cpuDeathTime -= dt;
+  if (cpuLookTimer > 0) cpuLookTimer -= dt;
+
+  // CPU opponent AI (always active)
+  if (cpuAlive) {
+    const cpuChar = CHARACTERS[cpuCharKey];
+    const cpuSpeed = cpuChar.speed;
+    const cpuPause = Math.sin(elapsed * 1.7 + 3) * 0.15;
+    const effectiveSpeed = Math.max(0.2, cpuSpeed + cpuPause);
+    cpuFloor += effectiveSpeed * dt;
+    if (currentLevel) cpuFloor = Math.min(currentLevel.floors, cpuFloor);
+
+    const cpuStairX3D = getStairX(cpuFloor);
+    const cpuTargetX = cpuStairX3D + (Math.random() - 0.5) * buildingW() * 0.2;
+    cpuOffsetX += (cpuTargetX - (cpuStairX3D + cpuOffsetX)) * Math.min(1, dt * 6);
+
+    const cpuAbsY = groundY() - (cpuFloor + 0.5) * fh;
+    if (cpuAbsY > waterScreenY()) {
+      cpuDrownTime += dt;
+    } else {
+      cpuDrownTime = Math.max(0, cpuDrownTime - dt * 0.3);
+    }
+
+    if (cpuDrownTime >= cpuDrownLimit) {
+      cpuAlive = false;
+      cpuDeathTime = 3;
+      state = STATE.WIN;
+      onGameWin(true);
+      return;
+    }
+  }
+
+  // Water rises
+  if (elapsed >= GRACE_PERIOD) {
+    waterLevel += WATER_SPEED * dt;
+  }
+
+  // Underwater check
+  const playerAbsY = getPlayerAbsY();
+  if (playerAbsY > waterScreenY()) {
+    drownTime += dt;
+    shakeAmount = Math.min(6, shakeAmount + dt * 3);
+    if (Math.random() < 0.3) {
+      const px = screenToWorldX(stairX + playerOffsetX);
+      const wy = waterLevel * WORLDS.floorH;
+      const pz = WORLDS.buildingD/2 + 0.15;
+      spawnParticles3D(px, wy, pz, 3, '#64b5f6', 0.5);
+    }
+  } else {
+    drownTime = Math.max(0, drownTime - dt * 0.3);
+    shakeAmount = Math.max(0, shakeAmount - dt * 5);
+  }
+
+  // Win: player reaches top
+  if (currentLevel && playerFloor >= currentLevel.floors) {
+    state = STATE.WIN;
+    onGameWin(false);
+    return;
+  }
+
+  // CPU wins
+  if (currentLevel && cpuAlive && cpuFloor >= currentLevel.floors) {
+    state = STATE.LOSE;
+    document.querySelector('#lose-screen .end-title').textContent = t('cpuWinTitle');
+    document.getElementById('lose-stats').textContent =
+      `${t('opponentRoof')} | ${t('statsYouAt')} ${Math.floor(playerFloor)} | ${t('statsTime')} ${elapsed.toFixed(1)}s`;
+    loseScreen.classList.remove('hidden');
+    return;
+  }
+
+  // Lose: drowned
+  if (drownTime >= drownLimit) {
+    state = STATE.LOSE;
+    document.querySelector('#lose-screen .end-title').textContent = t('loseTitle');
+    const cpuInfo = ` | CPU: ${cpuAlive ? Math.floor(cpuFloor) + 'F' : t('cpuDrownedStat')}`;
+    document.getElementById('lose-stats').textContent =
+      `${t('reachedFloor')} ${Math.floor(playerFloor)} ${t('floorsTotal')} ${currentLevel ? currentLevel.floors : '?'}) | ${t('statsTime')} ${elapsed.toFixed(1)}s` + cpuInfo;
+    loseScreen.classList.remove('hidden');
+    return;
+  }
+
+  updateHUD();
+}
+
+function updateHUD() {
+  hudTime.textContent = elapsed.toFixed(1) + 's';
+  const pf = Math.max(0, Math.floor(playerFloor));
+  const cpuPf = Math.max(0, Math.floor(cpuFloor));
+  hudFloor.textContent = pf + 'F / CPU:' + cpuPf + 'F';
+
+  if (elapsed < GRACE_PERIOD) {
+    hudWater.textContent = (GRACE_PERIOD - elapsed).toFixed(1) + 's';
+  } else {
+    hudWater.textContent = 'F' + Math.max(0, Math.floor(waterLevel));
+  }
+  document.getElementById('hud-limit').textContent = drownLimit + 's';
+
+  if (drownTime > 0) {
+    drownBarWrap.classList.add('visible');
+    drownBar.style.width = (drownTime / drownLimit * 100) + '%';
+    drownBar.style.background = drownTime > drownLimit * 0.7
+      ? 'linear-gradient(90deg, #ff5252, #e94560)'
+      : 'linear-gradient(90deg, #4fc3f7, #ff9800)';
+  } else {
+    drownBarWrap.classList.remove('visible');
+  }
+}
+
+// ===================================================================
+//  CURSOR 3D
+// ===================================================================
+
+function createCursorDot() {
+  if (cursorDot) { scene.remove(cursorDot); cursorDot.geometry.dispose(); cursorDot.material.dispose(); }
+  const geo = new THREE.SphereGeometry(0.06, 8, 8);
+  const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6 });
+  cursorDot = new THREE.Mesh(geo, mat);
+  cursorDot.renderOrder = 999;
+  cursorDot.material.depthTest = false;
+  cursorDot.material.depthWrite = false;
+  cursorDot.visible = false;
+  scene.add(cursorDot);
+
+  if (cursorPlane) { scene.remove(cursorPlane); cursorPlane.geometry.dispose(); cursorPlane.material.dispose(); }
+  cursorPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(20, 40),
+    new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide })
+  );
+  cursorPlane.position.set(0, buildingHeight3D() / 2, WORLDS.buildingD / 2 + 0.2);
+  cursorPlane.name = 'cursorPlane';
+  scene.add(cursorPlane);
+}
+
+function updateCursor3D() {
+  if (!cursorDot || !cursorPlane || state !== STATE.PLAYING) return;
+  const ndc = new THREE.Vector2((mouseX / W) * 2 - 1, -(mouseY / H) * 2 + 1);
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(ndc, camera);
+  const intersects = raycaster.intersectObject(cursorPlane);
+  if (intersects.length > 0) {
+    cursorDot.position.copy(intersects[0].point);
+    cursorDot.visible = true;
+    const pulse = 0.7 + 0.3 * Math.sin(elapsed * 5);
+    cursorDot.scale.setScalar(pulse);
+  } else {
+    cursorDot.visible = false;
+  }
+}
+
+// ===================================================================
+//  3D UPDATE
+// ===================================================================
+
+function update3D(dt) {
+  if (!playerGroup) return;
+
+  const playerPos = getPlayer3DPosition(playerFloor, playerOffsetX, false);
+  playerGroup.position.copy(playerPos);
+
+  const waterY = waterLevel * WORLDS.floorH;
+  const bodyMesh = playerGroup.children.find(c => c.name === 'body');
+  if (bodyMesh) {
+    const char = CHARACTERS[characterKey];
+    bodyMesh.material.color.set(playerPos.y < waterY && drownTime > 0 ? 0x6496c8 : char.color);
+  }
+
+  const ring = playerGroup.children.find(c => c.name === 'ring');
+  if (ring) {
+    const pulse = 0.5 + 0.5 * Math.sin(elapsed * 4);
+    ring.material.opacity = 0.25 + pulse * 0.5;
+    ring.scale.setScalar(1 + pulse * 0.25);
+  }
+
+  if (mouseX > 0 && mouseY < getPlayerAbsY() - floorH() * 0.05) {
+    playerGroup.position.y += Math.sin(elapsed * 14) * 0.015;
+  }
+
+  // CPU position (always active)
+  if (cpuAlive && cpuPlayerGroup) {
+    const cpuPos = getPlayer3DPosition(cpuFloor, cpuOffsetX, true);
+    cpuPlayerGroup.position.copy(cpuPos);
+    cpuPlayerGroup.visible = true;
+
+    const cpuBody = cpuPlayerGroup.children.find(c => c.name === 'body');
+    if (cpuBody) {
+      cpuBody.material.color.set(cpuPos.y < waterY && cpuDrownTime > 0 ? 0xb47850 : 0xff8c42);
+    }
+
+    const cpuRing = cpuPlayerGroup.children.find(c => c.name === 'ring');
+    if (cpuRing) {
+      const cpuPulse = 0.5 + 0.5 * Math.sin(elapsed * 4 + 2);
+      cpuRing.material.opacity = 0.2 + cpuPulse * 0.45;
+      cpuRing.scale.setScalar(1 + cpuPulse * 0.2);
+    }
+  } else if (cpuPlayerGroup) {
+    cpuPlayerGroup.visible = false;
+  }
+
+  updateWaterVisuals();
+  updateParticles3D(dt);
+  updateCamera(playerPos.y);
+  updateCursor3D();
+
+  if (shakeAmount > 0.01) {
+    camera.position.x += (Math.random() - 0.5) * shakeAmount * 0.015;
+    camera.position.y += (Math.random() - 0.5) * shakeAmount * 0.015;
+  }
+
+  if (stars && Math.random() < 0.3) {
+    stars.material.opacity = 0.5 + Math.sin(elapsed * 3) * 0.2;
+  }
+}
+
+function updateCamera(playerY) {
+  const bH = buildingHeight3D();
+  const bw = WORLDS.buildingW;
+  const bd = WORLDS.buildingD;
+
+  const targetY = Math.max(2, Math.min(bH - 1, playerY + 1));
+  cameraY3D += (targetY - cameraY3D) * 0.04;
+
+  const totalH = bH;
+  const extraDist = Math.max(0, (totalH - 15) * 0.12);
+
+  let camZ = bd/2 + 10 + extraDist * 0.5;
+  let camX = bw/2 + 8 + extraDist * 0.3;
+  let camY = cameraY3D + 5 + extraDist * 0.15;
+
+  if (cpuLookTimer > 0 && cpuAlive) {
+    const cpuPos = getPlayer3DPosition(cpuFloor, cpuOffsetX, true);
+    const t2 = Math.min(1, cpuLookTimer / 0.3);
+    camY = cpuPos.y + 2;
+    camX = cpuPos.x + 4;
+    camZ = cpuPos.z + 5 + t2 * 2;
+    cameraY3D += (cpuPos.y - cameraY3D) * 0.08;
+  }
+
+  camera.position.lerp(new THREE.Vector3(camX, camY, camZ), 0.06);
+  camera.lookAt(0, cameraY3D, 0);
+}
+
+// ===================================================================
+//  MAIN LOOP
+// ===================================================================
+
+function loop(timestamp) {
+  const dt = (timestamp - lastTime) / 1000;
+  lastTime = timestamp;
+
+  if (state === STATE.PLAYING && !gameStarted && dt > 0) {
+    gameStarted = true;
+    document.getElementById('hud').style.opacity = '1';
+    document.getElementById('home-btn-top').style.display = '';
+    document.getElementById('auto-climb-btn').style.display = '';
+    document.getElementById('view-cpu-btn').style.display = '';
+  }
+
+  update(dt);
+  if (state === STATE.PLAYING) update3D(dt);
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+}
+
+// ===================================================================
+//  INIT
+// ===================================================================
+
+function init() {
+  loadProgress();
+  resize();
+  recalcWorldConstants();
+  selectedLevelId = Math.min(unlockedLevel, LEVELS.length);
+  applyLanguage();
+  document.getElementById('hud').style.opacity = '0';
+  climbBtn.style.display = 'none';
+  startScreen.classList.remove('hidden');
+
+  createGround();
+  createStars();
+  createWater();
+  applyDayNight();
+
+  const dayBtn = document.querySelector('[data-daynight="day"]');
+  const nightBtn = document.querySelector('[data-daynight="night"]');
+  dayBtn.classList.toggle('selected', !isNightMode);
+  nightBtn.classList.toggle('selected', isNightMode);
+
+  camera.position.set(10, 5, 12);
+  camera.lookAt(0, 2, 0);
+}
+
+init();
+requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>
